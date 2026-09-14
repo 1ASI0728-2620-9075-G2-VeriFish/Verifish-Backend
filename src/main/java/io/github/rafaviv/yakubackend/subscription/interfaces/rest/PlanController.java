@@ -1,0 +1,32 @@
+package io.github.rafaviv.yakubackend.subscription.interfaces.rest;
+
+import io.github.rafaviv.yakubackend.subscription.application.internal.queryservices.SubscriptionQueryService;
+import io.github.rafaviv.yakubackend.subscription.interfaces.rest.resources.PlanResource;
+import io.github.rafaviv.yakubackend.subscription.interfaces.rest.transform.PlanResourceFromEntityAssembler;
+import io.github.rafaviv.yakubackend.subscription.domain.model.entities.Plan;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@RestController
+@RequestMapping("/api/v1/plans")
+public class PlanController {
+    private final SubscriptionQueryService subscriptionQueryService;
+
+    public PlanController(SubscriptionQueryService subscriptionQueryService) {
+        this.subscriptionQueryService = subscriptionQueryService;
+    }
+
+    @GetMapping
+    public ResponseEntity<List<PlanResource>> getAllPlans() {
+        List<Plan> plans = subscriptionQueryService.getAvailablePlans();
+        List<PlanResource> resources = plans.stream()
+                .map(PlanResourceFromEntityAssembler::toResourceFromEntity)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(resources);
+    }
+}

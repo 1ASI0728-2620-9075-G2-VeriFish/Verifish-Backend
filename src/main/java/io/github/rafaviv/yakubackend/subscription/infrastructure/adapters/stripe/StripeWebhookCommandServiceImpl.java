@@ -1,0 +1,34 @@
+package io.github.rafaviv.yakubackend.subscription.infrastructure.adapters.stripe;
+
+import io.github.rafaviv.yakubackend.subscription.application.internal.commandservices.SubscriptionCommandService;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Stripe Webhook Command Service
+ * Orchestrates business logic when Stripe webhook events are received.
+ */
+@Service
+public class StripeWebhookCommandServiceImpl {
+
+    private final SubscriptionCommandService subscriptionCommandService;
+
+    public StripeWebhookCommandServiceImpl(SubscriptionCommandService subscriptionCommandService) {
+        this.subscriptionCommandService = subscriptionCommandService;
+
+    }
+
+    @Transactional
+    public void handleCheckoutSessionCompleted(String userIdStr, String planIdStr, String stripeSubscriptionId) {
+        if (userIdStr != null && planIdStr != null) {
+            Long userId = Long.valueOf(userIdStr);
+            Long planId = Long.valueOf(planIdStr);
+
+            subscriptionCommandService.subscribeUserToPlanWithStripe(userId, planId, stripeSubscriptionId);
+
+            System.out.println("Checkout session completed and subscription activated for user " + userId);
+        } else {
+            System.err.println("Missing userId or planId in session completed event");
+        }
+    }
+}
