@@ -1,8 +1,10 @@
 package io.github.rafaviv.yakubackend.iam.infrastructure.authorization.sfs.pipeline;
 
+import io.github.rafaviv.yakubackend.iam.infrastructure.authorization.sfs.model.UserDetailsImpl;
 import io.github.rafaviv.yakubackend.iam.infrastructure.authorization.sfs.model.UserDetailsServiceExtension;
 import io.github.rafaviv.yakubackend.iam.infrastructure.authorization.sfs.model.UsernamePasswordAuthenticationTokenBuilder;
 import io.github.rafaviv.yakubackend.iam.infrastructure.tokens.jwt.BearerTokenService;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -10,6 +12,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -44,34 +47,45 @@ public class BearerAuthorizationRequestFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
         String path = request.getRequestURI();
-        System.out.println("➡️ Request entrante a: " + path);
 
-        // 1️⃣ Permitir preflight requests (CORS)
+        // 1. Permit preflight requests (CORS)
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             response.setStatus(HttpServletResponse.SC_OK);
             return;
         }
 
-        // 2️⃣ Endpoints públicos (sin token requerido)
+        // 2. Public endpoints (no token required)
         if (path.contains("/api/v1/users/signup") || path.contains("/api/v1/users/signin")) {
-            System.out.println("🟢 Ruta pública detectada (" + path + "), omitiendo validación JWT");
             filterChain.doFilter(request, response);
             return;
         }
 
-        // 3️⃣ Validación normal del token
+        // 3. Token validation
         String token = tokenService.getBearerTokenFrom(request);
 
-        if (StringUtils.hasText(token) && tokenService.validateToken(token)) {
-            Long userId = tokenService.getUserIdFromToken(token);
-            UserDetails userDetails = userDetailsService.loadUserById(userId);
+        if (StringUtils.hasText(token)) {
+            try {
+                if (tokenService.validateToken(token)) {
+                    Long userId = tokenService.getUserIdFromToken(token);
+                    Long farmId = tokenService.getFarmIdFromToken(token);
+                    UserDetails userDetails = userDetailsService.loadUserById(userId);
+                    if (userDetails instanceof UserDetailsImpl userDetailsImpl) {
+                        userDetails = userDetailsImpl.withFarmId(farmId);
+                    }
 
-            SecurityContext context = SecurityContextHolder.createEmptyContext();
-            var authenticationToken = UsernamePasswordAuthenticationTokenBuilder.build(userDetails, request);
-            context.setAuthentication(authenticationToken);
-            SecurityContextHolder.setContext(context);
+                    SecurityContext context = SecurityContextHolder.createEmptyContext();
+                    var authenticationToken = UsernamePasswordAuthenticationTokenBuilder.build(userDetails, request);
+                    context.setAuthentication(authenticationToken);
+                    SecurityContextHolder.setContext(context);
+                }
+            } catch (JwtException | IllegalArgumentException | SecurityException | AuthenticationException e) {
+                LOGGER.warn("Failed to process JWT authentication: {}", e.getMessage());
+                SecurityContextHolder.clearContext();
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
         }
 
         filterChain.doFilter(request, response);
     }
-} 
+}
