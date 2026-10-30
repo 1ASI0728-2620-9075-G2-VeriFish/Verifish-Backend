@@ -14,3 +14,4 @@ public class FarmAccessDeniedException extends RuntimeException {
         super(message);
     }
 }
+

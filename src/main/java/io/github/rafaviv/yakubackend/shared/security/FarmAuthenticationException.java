@@ -14,3 +14,4 @@ public class FarmAuthenticationException extends RuntimeException {
         super(message);
     }
 }
+

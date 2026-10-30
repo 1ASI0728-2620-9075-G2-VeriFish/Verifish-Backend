@@ -68,3 +68,4 @@ public class FarmAccessGuard {
                 && !"anonymousUser".equals(authentication.getPrincipal());
     }
 }
+
