@@ -2,23 +2,27 @@ package io.github.rafaviv.yakubackend.iam.application.internal.commandservices;
 
 import io.github.rafaviv.yakubackend.iam.application.internal.outboundservices.hashing.HashingService;
 import io.github.rafaviv.yakubackend.iam.application.internal.outboundservices.tokens.TokenService;
+import io.github.rafaviv.yakubackend.iam.domain.model.aggregates.FarmToken;
 import io.github.rafaviv.yakubackend.iam.domain.model.aggregates.User;
-import io.github.rafaviv.yakubackend.iam.domain.model.valueobjects.Email;
-import io.github.rafaviv.yakubackend.iam.domain.model.valueobjects.HashedPassword;
 import io.github.rafaviv.yakubackend.iam.domain.model.commands.SignInCommand;
 import io.github.rafaviv.yakubackend.iam.domain.model.commands.SignUpCommand;
 import io.github.rafaviv.yakubackend.iam.domain.model.entities.Role;
 import io.github.rafaviv.yakubackend.iam.domain.model.exceptions.InvalidCredentialsException;
 import io.github.rafaviv.yakubackend.iam.domain.model.exceptions.UserAccountDeactivatedException;
 import io.github.rafaviv.yakubackend.iam.domain.model.exceptions.UserAlreadyExistsException;
+import io.github.rafaviv.yakubackend.iam.domain.model.valueobjects.Email;
+import io.github.rafaviv.yakubackend.iam.domain.model.valueobjects.HashedPassword;
+import io.github.rafaviv.yakubackend.iam.domain.model.valueobjects.Roles;
 import io.github.rafaviv.yakubackend.iam.domain.services.RoleValidationService;
 import io.github.rafaviv.yakubackend.iam.domain.services.UserCommandService;
-import io.github.rafaviv.yakubackend.iam.domain.model.aggregates.FarmToken;
 import io.github.rafaviv.yakubackend.iam.infrastructure.persistence.jpa.repositories.FarmTokenRepository;
 import io.github.rafaviv.yakubackend.iam.infrastructure.persistence.jpa.repositories.RoleRepository;
 import io.github.rafaviv.yakubackend.iam.infrastructure.persistence.jpa.repositories.UserRepository;
+import io.github.rafaviv.yakubackend.shared.security.FarmOwnershipResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,9 +47,9 @@ public class UserCommandServiceImpl implements UserCommandService {
     private final HashingService hashingService;
     private final TokenService tokenService;
     private final RoleValidationService roleValidationService;
-    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
+    private final ApplicationEventPublisher eventPublisher;
     private final FarmTokenRepository farmTokenRepository;
-
+    private final FarmOwnershipResolver farmOwnershipResolver;
 
     public UserCommandServiceImpl(
             UserRepository userRepository,
@@ -53,8 +57,22 @@ public class UserCommandServiceImpl implements UserCommandService {
             HashingService hashingService,
             TokenService tokenService,
             RoleValidationService roleValidationService,
-            org.springframework.context.ApplicationEventPublisher eventPublisher,
+            ApplicationEventPublisher eventPublisher,
             FarmTokenRepository farmTokenRepository) {
+        this(userRepository, roleRepository, hashingService, tokenService,
+                roleValidationService, eventPublisher, farmTokenRepository, null);
+    }
+
+    @Autowired
+    public UserCommandServiceImpl(
+            UserRepository userRepository,
+            RoleRepository roleRepository,
+            HashingService hashingService,
+            TokenService tokenService,
+            RoleValidationService roleValidationService,
+            ApplicationEventPublisher eventPublisher,
+            FarmTokenRepository farmTokenRepository,
+            @Autowired(required = false) FarmOwnershipResolver farmOwnershipResolver) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.hashingService = hashingService;
@@ -62,6 +80,7 @@ public class UserCommandServiceImpl implements UserCommandService {
         this.roleValidationService = roleValidationService;
         this.eventPublisher = eventPublisher;
         this.farmTokenRepository = farmTokenRepository;
+        this.farmOwnershipResolver = farmOwnershipResolver;
     }
 
     @Override
@@ -81,7 +100,7 @@ public class UserCommandServiceImpl implements UserCommandService {
 
         // Validate FarmToken if role is OPERATOR
         FarmToken farmToken = null;
-        if (command.requestedRole() == io.github.rafaviv.yakubackend.iam.domain.model.valueobjects.Roles.OPERATOR) {
+        if (command.requestedRole() == Roles.OPERATOR) {
             if (command.farmToken() == null || command.farmToken().isBlank()) {
                 throw new IllegalArgumentException("Farm token is required for OPERATOR role");
             }
@@ -114,7 +133,7 @@ public class UserCommandServiceImpl implements UserCommandService {
         
         // Assign Farm ID and mark token as used if role is OPERATOR
         Long assignedFarmId = command.farmId();
-        if (command.requestedRole() == io.github.rafaviv.yakubackend.iam.domain.model.valueobjects.Roles.OPERATOR && farmToken != null) {
+        if (command.requestedRole() == Roles.OPERATOR && farmToken != null) {
             assignedFarmId = farmToken.getFarmId();
             farmToken.markAsUsed();
             farmTokenRepository.save(farmToken);
@@ -169,13 +188,20 @@ public class UserCommandServiceImpl implements UserCommandService {
     }
 
     /**
-     * Generate JWT token for authenticated user
+     * Generate JWT token for authenticated user.
+     * If the user is an ADMIN with null assignedFarmId, resolves the farmId from the farm they own.
      * @param user the authenticated user
      * @return JWT token string
      */
     public String generateTokenForUser(User user) {
         String userRole = user.getRoles().isEmpty() ? "OPERATOR" : 
                          user.getRoles().get(0).getName().name();
-        return tokenService.generateToken(user.getId(), userRole, user.getFarmId());
+        Long farmId = user.getFarmId();
+        boolean isAdmin = user.getRoles().stream()
+                .anyMatch(role -> role.getName() == Roles.ADMIN);
+        if (farmId == null && isAdmin && farmOwnershipResolver != null) {
+            farmId = farmOwnershipResolver.findFarmIdByOwnerId(user.getId()).orElse(null);
+        }
+        return tokenService.generateToken(user.getId(), userRole, farmId);
     }
 }
