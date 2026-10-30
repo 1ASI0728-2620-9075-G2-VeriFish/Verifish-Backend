@@ -1,7 +1,5 @@
 package io.github.rafaviv.yakubackend.iam.application.internal.outboundservices.tokens;
 
-
-
 /**
  * TokenService interface
  * This interface is used to generate and validate tokens
@@ -9,26 +7,37 @@ package io.github.rafaviv.yakubackend.iam.application.internal.outboundservices.
 public interface TokenService {
 
     /**
-     * Generate a token for a given username and tenant ID
+     * Generate a token for a given user ID and role without a farm ID
      * @param userId the user ID
      * @param userRole the user role
      * @return String the token
      */
-    String generateToken(Long userId, String userRole);
+    default String generateToken(Long userId, String userRole) {
+        return generateToken(userId, userRole, null);
+    }
 
     /**
-     * Extract the username from a token
+     * Generate a token for a given user ID, role, and farm ID
+     * @param userId the user ID
+     * @param userRole the user role
+     * @param farmId the farm ID (nullable)
+     * @return String the token
+     */
+    String generateToken(Long userId, String userRole, Long farmId);
+
+    /**
+     * Extract the user ID from a token
      * @param token the token
      * @return Long the userId
      */
     Long getUserIdFromToken(String token);
 
     /**
-     * Extract the workshop ID from a token
+     * Extract the farm ID from a token
      * @param token the token
-     * @return Long the workshop ID
+     * @return Long the farm ID, or null if not present
      */
-    Long getWorkshopIdFromToken(String token);
+    Long getFarmIdFromToken(String token);
 
     /**
      * Validate a token

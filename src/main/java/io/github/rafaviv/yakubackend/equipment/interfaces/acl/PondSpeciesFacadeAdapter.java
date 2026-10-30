@@ -7,6 +7,8 @@ import io.github.rafaviv.yakubackend.equipment.infrastructure.persistence.jpa.re
 import io.github.rafaviv.yakubackend.telemetry.application.outboundservices.acl.ExternalEquipmentService;
 import org.springframework.stereotype.Component;
 
+import java.util.Optional;
+
 /**
  * Adapter that implements the ExternalEquipmentService port defined in the Telemetry context.
  * Serves as an ACL facade for Equipment context.
@@ -58,5 +60,10 @@ public class PondSpeciesFacadeAdapter implements ExternalEquipmentService {
         Farm farm = farmRepository.findById(pond.getFarmId())
                 .orElseThrow(() -> new IllegalStateException("Farm with ID " + pond.getFarmId() + " not found"));
         return farm.getOwnerId();
+    }
+
+    @Override
+    public Optional<Long> getFarmIdByPondId(Long pondId) {
+        return pondRepository.findById(pondId).map(Pond::getFarmId);
     }
 }
