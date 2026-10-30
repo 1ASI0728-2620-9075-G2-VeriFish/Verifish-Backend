@@ -1,5 +1,7 @@
 package io.github.rafaviv.yakubackend.telemetry.application.outboundservices.acl;
 
+import java.util.Optional;
+
 /**
  * Port for the Telemetry Bounded Context to communicate with external Equipment Context.
  * Resolves necessary information without coupling to Equipment's internal structures.
@@ -30,4 +32,12 @@ public interface ExternalEquipmentService {
      * @return The user ID of the operator or owner
      */
     Long getOperatorIdByPondId(Long pondId);
+
+    /**
+     * Retrieves the farm ID to which a specific pond belongs.
+     *
+     * @param pondId The identifier of the pond
+     * @return Optional containing the farmId if the pond exists, empty otherwise
+     */
+    Optional<Long> getFarmIdByPondId(Long pondId);
 }
