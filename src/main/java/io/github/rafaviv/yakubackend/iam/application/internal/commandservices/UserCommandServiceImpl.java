@@ -113,12 +113,14 @@ public class UserCommandServiceImpl implements UserCommandService {
         user.addRole(requestedRole);
         
         // Assign Farm ID and mark token as used if role is OPERATOR
-        Long assignedFarmId = null;
+        Long assignedFarmId = command.farmId();
         if (command.requestedRole() == io.github.rafaviv.yakubackend.iam.domain.model.valueobjects.Roles.OPERATOR && farmToken != null) {
             assignedFarmId = farmToken.getFarmId();
-            user.setAssignedFarmId(assignedFarmId);
             farmToken.markAsUsed();
             farmTokenRepository.save(farmToken);
+        }
+        if (assignedFarmId != null) {
+            user.setAssignedFarmId(assignedFarmId);
         }
 
         // Save user
@@ -174,6 +176,6 @@ public class UserCommandServiceImpl implements UserCommandService {
     public String generateTokenForUser(User user) {
         String userRole = user.getRoles().isEmpty() ? "OPERATOR" : 
                          user.getRoles().get(0).getName().name();
-        return tokenService.generateToken(user.getId(), userRole);
+        return tokenService.generateToken(user.getId(), userRole, user.getFarmId());
     }
 }

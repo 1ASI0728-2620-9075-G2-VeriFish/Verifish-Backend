@@ -33,7 +33,19 @@ public record SignUpResource(
     @NotNull(message = "Requested role is required")
     String role,
     
-    String farmToken
+    String farmToken,
+
+    Long farmId
 ) {
-    
+    public SignUpResource(
+            String username,
+            String email,
+            String password,
+            String firstName,
+            String lastName,
+            String role,
+            String farmToken
+    ) {
+        this(username, email, password, firstName, lastName, role, farmToken, null);
+    }
 }
