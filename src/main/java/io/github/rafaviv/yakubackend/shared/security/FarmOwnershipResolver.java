@@ -10,3 +10,4 @@ public interface FarmOwnershipResolver {
 
     Optional<Long> findFarmIdByOwnerId(Long ownerId);
 }
+

@@ -1,8 +1,11 @@
 package io.github.rafaviv.yakubackend.equipment.interfaces.rest;
 
+import io.github.rafaviv.yakubackend.equipment.domain.model.aggregates.Farm;
 import io.github.rafaviv.yakubackend.equipment.domain.model.aggregates.Pond;
 import io.github.rafaviv.yakubackend.equipment.domain.model.valueobjects.Species;
+import io.github.rafaviv.yakubackend.equipment.infrastructure.persistence.jpa.repositories.FarmRepository;
 import io.github.rafaviv.yakubackend.equipment.infrastructure.persistence.jpa.repositories.PondRepository;
+import io.github.rafaviv.yakubackend.iam.application.internal.commandservices.UserCommandServiceImpl;
 import io.github.rafaviv.yakubackend.iam.domain.model.aggregates.User;
 import io.github.rafaviv.yakubackend.iam.domain.model.entities.Role;
 import io.github.rafaviv.yakubackend.iam.domain.model.valueobjects.Email;
@@ -30,6 +33,8 @@ import java.util.Date;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -51,12 +56,16 @@ class FarmIsolationIntegrationTest {
     private static final Long FARM_A_ID = 101L;
     private static final Long FARM_B_ID = 202L;
     private static final String SECRET_POND_NAME = "Pond-Confidencial-Granja-101";
+    private static final String OTHER_POND_NAME = "Pond-Confidencial-Granja-202";
 
     @Autowired
     private MockMvc mockMvc;
 
     @Autowired
     private PondRepository pondRepository;
+
+    @Autowired
+    private FarmRepository farmRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -67,9 +76,14 @@ class FarmIsolationIntegrationTest {
     @Autowired
     private BearerTokenService tokenService;
 
+    @Autowired
+    private UserCommandServiceImpl userCommandService;
+
     @Value("${authorization.jwt.secret}")
     private String jwtSecret;
 
+    private Role adminRole;
+    private Role operatorRole;
     private User farmAUser;
     private User farmBUser;
     private User noFarmUser;
@@ -78,10 +92,13 @@ class FarmIsolationIntegrationTest {
     @BeforeEach
     void setUp() {
         pondRepository.deleteAll();
+        farmRepository.deleteAll();
         userRepository.deleteAll();
 
-        Role adminRole = roleRepository.findByName(Roles.ADMIN)
+        adminRole = roleRepository.findByName(Roles.ADMIN)
                 .orElseGet(() -> roleRepository.save(new Role(Roles.ADMIN)));
+        operatorRole = roleRepository.findByName(Roles.OPERATOR)
+                .orElseGet(() -> roleRepository.save(new Role(Roles.OPERATOR)));
 
         farmAUser = new User(
                 "admin_farm_a",
@@ -211,5 +228,80 @@ class FarmIsolationIntegrationTest {
                 .andExpect(content().string(not(containsString(SECRET_POND_NAME))))
                 .andExpect(content().string(not(containsString("TRUCHA"))));
     }
-}
 
+    @Test
+    @DisplayName("ADMIN owner of farm (with assignedFarmId null) gets 200 on own farm pond and 403 on other farm pond")
+    void adminOwnerOfFarm_WithNullAssignedFarmId_Gets200OnOwnPondAnd403OnOtherPond() throws Exception {
+        User adminOwner = new User(
+                "admin_owner",
+                new Email("owner@verifish.test"),
+                new HashedPassword("hashedPassOwner123"),
+                "Owner",
+                "Admin",
+                true
+        );
+        adminOwner.addRole(adminRole);
+        adminOwner = userRepository.save(adminOwner);
+        assertNull(adminOwner.getAssignedFarmId());
+
+        Farm ownedFarm = farmRepository.save(new Farm("Granja Del Admin", adminOwner.getId(), "Cusco"));
+        Farm otherFarm = farmRepository.save(new Farm("Granja Ajena", farmBUser.getId(), "Puno"));
+
+        Pond ownedPond = pondRepository.save(new Pond(ownedFarm.getId(), "Estanque-Propio-Admin", Species.TRUCHA, 300.0));
+        Pond otherPond = pondRepository.save(new Pond(otherFarm.getId(), OTHER_POND_NAME, Species.PAICHE, 400.0));
+
+        String token = userCommandService.generateTokenForUser(adminOwner);
+        assertEquals(ownedFarm.getId(), tokenService.getFarmIdFromToken(token));
+
+        mockMvc.perform(get("/api/v1/ponds/{id}", ownedPond.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(ownedPond.getId()))
+                .andExpect(jsonPath("$.name").value("Estanque-Propio-Admin"))
+                .andExpect(jsonPath("$.farmId").value(ownedFarm.getId()));
+
+        mockMvc.perform(get("/api/v1/ponds/{id}", otherPond.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(not(containsString(OTHER_POND_NAME))))
+                .andExpect(content().string(not(containsString("PAICHE"))));
+    }
+
+    @Test
+    @DisplayName("OPERATOR assigned to farm gets 200 on own farm pond and 403 on other farm pond")
+    void operatorAssignedToFarm_Gets200OnOwnPondAnd403OnOtherPond() throws Exception {
+        Farm operatorFarm = farmRepository.save(new Farm("Granja Operador", farmAUser.getId(), "Junin"));
+        Farm otherFarm = farmRepository.save(new Farm("Granja Externa", farmBUser.getId(), "Arequipa"));
+
+        User operatorUser = new User(
+                "operator_farm",
+                new Email("operator@verifish.test"),
+                new HashedPassword("hashedPassOp123"),
+                "Operador",
+                "Uno",
+                true
+        );
+        operatorUser.addRole(operatorRole);
+        operatorUser.setAssignedFarmId(operatorFarm.getId());
+        operatorUser = userRepository.save(operatorUser);
+
+        Pond ownPond = pondRepository.save(new Pond(operatorFarm.getId(), "Estanque-Operador", Species.TILAPIA, 180.0));
+        Pond otherPond = pondRepository.save(new Pond(otherFarm.getId(), OTHER_POND_NAME, Species.PAICHE, 400.0));
+
+        String token = userCommandService.generateTokenForUser(operatorUser);
+        assertEquals(operatorFarm.getId(), tokenService.getFarmIdFromToken(token));
+
+        mockMvc.perform(get("/api/v1/ponds/{id}", ownPond.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(ownPond.getId()))
+                .andExpect(jsonPath("$.name").value("Estanque-Operador"))
+                .andExpect(jsonPath("$.farmId").value(operatorFarm.getId()));
+
+        mockMvc.perform(get("/api/v1/ponds/{id}", otherPond.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(not(containsString(OTHER_POND_NAME))))
+                .andExpect(content().string(not(containsString("PAICHE"))));
+    }
+}
