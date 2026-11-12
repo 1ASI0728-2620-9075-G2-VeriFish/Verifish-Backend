@@ -98,4 +98,12 @@ public class User extends AuditableAbstractAggregateRoot<User> {
     public void updatePassword(HashedPassword newPassword) {
         this.password = newPassword;
     }
+
+    public Long getFarmId() {
+        return this.assignedFarmId;
+    }
+
+    public void setFarmId(Long farmId) {
+        this.assignedFarmId = farmId;
+    }
 }

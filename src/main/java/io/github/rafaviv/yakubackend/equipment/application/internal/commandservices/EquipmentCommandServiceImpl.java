@@ -50,6 +50,19 @@ public class EquipmentCommandServiceImpl implements EquipmentCommandService {
 
     @Override
     public List<Equipment> registerIoTDevice(String deviceId, String deviceName, Long farmId) {
+        List<String> expectedCodes = List.of(
+                deviceId + "-B1",
+                deviceId + "-B2",
+                deviceId + "-TEMP",
+                deviceId + "-TURB"
+        );
+        boolean alreadyExists = expectedCodes.stream()
+                .anyMatch(code -> equipmentRepository.findByPhysicalCode(code).isPresent())
+                || equipmentRepository.findByPhysicalCode(deviceId).isPresent();
+        if (alreadyExists) {
+            throw new IllegalStateException("IoT device already exists with deviceId: " + deviceId);
+        }
+
         List<Equipment> createdEquipments = new ArrayList<>();
 
         // 1. Bomba 1

@@ -2,6 +2,7 @@ package io.github.rafaviv.yakubackend.iam.infrastructure.authorization.sfs.model
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.github.rafaviv.yakubackend.iam.domain.model.aggregates.User;
+import io.github.rafaviv.yakubackend.shared.security.FarmAwarePrincipal;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
@@ -17,7 +18,7 @@ import java.util.stream.Collectors;
  */
 @Getter
 @EqualsAndHashCode
-public class UserDetailsImpl implements UserDetails {
+public class UserDetailsImpl implements UserDetails, FarmAwarePrincipal {
 
     private final Long id;
     @JsonIgnore
@@ -26,6 +27,7 @@ public class UserDetailsImpl implements UserDetails {
     private final String email;
     private final String firstName;
     private final String lastName;
+    private final Long farmId;
     private final boolean accountNonExpired;
     private final boolean accountNonLocked;
     private final boolean credentialsNonExpired;
@@ -33,7 +35,7 @@ public class UserDetailsImpl implements UserDetails {
     private final Collection<? extends GrantedAuthority> authorities;
 
     /**
-     * This constructor initializes the UserDetailsImpl object.
+     * This constructor initializes the UserDetailsImpl object without a farmId.
      * @param id The user ID.
      * @param password The password.
      * @param username The username.
@@ -46,12 +48,31 @@ public class UserDetailsImpl implements UserDetails {
     public UserDetailsImpl(Long id, String password, String username, String email, 
                           String firstName, String lastName,
                           boolean enabled, Collection<? extends GrantedAuthority> authorities) {
+        this(id, password, username, email, firstName, lastName, null, enabled, authorities);
+    }
+
+    /**
+     * This constructor initializes the UserDetailsImpl object including the farmId.
+     * @param id The user ID.
+     * @param password The password.
+     * @param username The username.
+     * @param email The email.
+     * @param firstName The first name.
+     * @param lastName The last name.
+     * @param farmId The farm ID associated with the user/token.
+     * @param enabled Whether the user is enabled.
+     * @param authorities The authorities.
+     */
+    public UserDetailsImpl(Long id, String password, String username, String email, 
+                          String firstName, String lastName, Long farmId,
+                          boolean enabled, Collection<? extends GrantedAuthority> authorities) {
         this.id = id;
         this.password = password;
         this.username = username;
         this.email = email;
         this.firstName = firstName;
         this.lastName = lastName;
+        this.farmId = farmId;
         this.authorities = authorities;
         this.accountNonExpired = true;
         this.accountNonLocked = true;
@@ -78,8 +99,27 @@ public class UserDetailsImpl implements UserDetails {
                 user.getEmailAddress(),
                 user.getFirstName(),
                 user.getLastName(),
+                user.getFarmId(),
                 user.getActive(),
                 authorities);
+    }
+
+    /**
+     * Returns a copy of this UserDetailsImpl with the specified farmId from the JWT claim.
+     * @param tokenFarmId the farm ID extracted from the JWT token
+     * @return a new UserDetailsImpl with the given farmId
+     */
+    public UserDetailsImpl withFarmId(Long tokenFarmId) {
+        return new UserDetailsImpl(
+                this.id,
+                this.password,
+                this.username,
+                this.email,
+                this.firstName,
+                this.lastName,
+                tokenFarmId,
+                this.enabled,
+                this.authorities);
     }
 
     /**
@@ -88,6 +128,11 @@ public class UserDetailsImpl implements UserDetails {
      */
     public String getFullName() {
         return String.format("%s %s", firstName, lastName).trim();
+    }
+
+    @Override
+    public Long getFarmId() {
+        return farmId;
     }
 
     @Override

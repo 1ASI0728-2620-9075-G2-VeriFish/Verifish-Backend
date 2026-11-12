@@ -26,7 +26,8 @@ public class SignUpCommandFromResourceAssembler {
                 resource.firstName(),
                 resource.lastName(),
                 Roles.valueOf(resource.role().toUpperCase()),
-                resource.farmToken()
+                resource.farmToken(),
+                resource.farmId()
         );
     }
 }

@@ -17,8 +17,21 @@ public record SignUpCommand(
         String firstName,
         String lastName,
         Roles requestedRole,
-        String farmToken
+        String farmToken,
+        Long farmId
 ) {
+    public SignUpCommand(
+            String username,
+            String email,
+            String password,
+            String firstName,
+            String lastName,
+            Roles requestedRole,
+            String farmToken
+    ) {
+        this(username, email, password, firstName, lastName, requestedRole, farmToken, null);
+    }
+
     public SignUpCommand {
         if (username == null || username.isEmpty()) {
             throw new IllegalArgumentException("Username cannot be null or empty.");

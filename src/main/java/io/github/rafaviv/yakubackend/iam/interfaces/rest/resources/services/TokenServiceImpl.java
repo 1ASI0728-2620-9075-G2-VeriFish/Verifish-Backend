@@ -30,7 +30,7 @@ public class TokenServiceImpl implements BearerTokenService {
     private static final String AUTHORIZATION_PARAMETER_NAME = "Authorization";
     private static final String BEARER_TOKEN_PREFIX = "Bearer ";
 
-    private static final String WORKSHOP_ID_CLAIM = "workshop_id";
+    private static final String FARM_ID_CLAIM = "farmId";
     private static final String ROLE_CLAIM = "role";
     private static final int TOKEN_BEGIN_INDEX = 7;
 
@@ -42,13 +42,25 @@ public class TokenServiceImpl implements BearerTokenService {
 
 
     /**
-     * Generates a JWT token based on the user ID, user role, and optionally the workshop ID.
+     * Generates a JWT token based on the user ID and user role without a farm ID.
      * @param userId The user ID (used as the subject)
      * @param userRole The user's role
      * @return The generated JWT token
      */
     @Override
     public String generateToken(Long userId, String userRole) {
+        return generateToken(userId, userRole, null);
+    }
+
+    /**
+     * Generates a JWT token based on the user ID, user role, and optionally the farm ID.
+     * @param userId The user ID (used as the subject)
+     * @param userRole The user's role
+     * @param farmId The user's farm ID (included only if non-null)
+     * @return The generated JWT token
+     */
+    @Override
+    public String generateToken(Long userId, String userRole, Long farmId) {
         var issuedAt = new Date();
         var expiration = DateUtils.addDays(issuedAt, expirationDays);
         var key = getSigningKey();
@@ -57,10 +69,13 @@ public class TokenServiceImpl implements BearerTokenService {
                 .subject(userId.toString())
                 .claim(ROLE_CLAIM, userRole)
                 .issuedAt(issuedAt)
-                .expiration(expiration)
-                .signWith(key);
+                .expiration(expiration);
 
-        return builder.compact();
+        if (farmId != null) {
+            builder.claim(FARM_ID_CLAIM, farmId);
+        }
+
+        return builder.signWith(key).compact();
     }
 
 
@@ -76,8 +91,11 @@ public class TokenServiceImpl implements BearerTokenService {
     }
 
     @Override
-    public Long getWorkshopIdFromToken(String token) {
-        return extractClaim(token, claims -> claims.get(WORKSHOP_ID_CLAIM, Long.class));
+    public Long getFarmIdFromToken(String token) {
+        return extractClaim(token, claims -> {
+            Number farmId = claims.get(FARM_ID_CLAIM, Number.class);
+            return farmId != null ? farmId.longValue() : null;
+        });
     }
 
     @Override

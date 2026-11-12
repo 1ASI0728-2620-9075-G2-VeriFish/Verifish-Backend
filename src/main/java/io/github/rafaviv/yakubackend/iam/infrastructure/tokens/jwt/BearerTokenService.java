@@ -13,5 +13,14 @@ public interface BearerTokenService extends TokenService {
      */
     String getBearerTokenFrom(HttpServletRequest token);
 
+    @Override
+    default String generateToken(Long userId, String role) {
+        return generateToken(userId, role, null);
+    }
 
+    @Override
+    String generateToken(Long userId, String role, Long farmId);
+
+    @Override
+    Long getFarmIdFromToken(String token);
 }

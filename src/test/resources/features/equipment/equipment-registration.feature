@@ -1,41 +1,43 @@
 # language: es
 
-Caracteristica: Registro de Dispositivos IoT
+@bdd-ready
+Característica: Registro de Dispositivos IoT
   Como administrador, quiero registrar dispositivos IoT en el sistema
   para poder asociarlos a estanques y recibir datos.
 
   Relacionado: US31
 
-  Contexto:
-    Dado que el administrador esta autenticado con un token JWT valido
+  Antecedentes:
+    Dado que el usuario esta autenticado con un token JWT valido de su granja
 
-  Escenario: Registro exitoso de dispositivo IoT
-    Dado que ingreso datos validos del dispositivo
-      | tipo     | nombre            | codigoFisico |
-      | "SENSOR" | "Sensor Temp-01"  | "ST-001"     |
-    Cuando guardo mediante POST /api/v1/equipment
-    Entonces el sistema lo registra correctamente con codigo 201
-    Y el dispositivo tiene estado inicial "AVAILABLE"
+  Escenario: Registro exitoso de equipo sensor individual
+    Cuando registro un equipo "SENSOR" con nombre "Sensor Temp-01" y codigo fisico "ST-001" mediante POST /api/v1/equipment
+    Entonces el modulo de equipos responde con codigo 201
+    Y el equipo registrado tiene estado inicial "AVAILABLE"
 
-  Escenario: Error por dispositivo duplicado
-    Dado que el dispositivo con codigo fisico "ST-001" ya existe
-    Cuando intento registrarlo mediante POST /api/v1/equipment
-    Entonces el sistema muestra error con codigo 409
+  Escenario: Registro exitoso de nodo IoT completo
+    Cuando registro un nodo IoT con deviceId "NODE-REG-01" y nombre "Nodo Norte" mediante POST /api/v1/equipment/iot-device
+    Entonces el modulo de equipos responde con codigo 201
+    Y se crean los 4 componentes del nodo IoT en estado "AVAILABLE"
+
+  Escenario: Error por nodo IoT duplicado
+    Dado que ya existe un nodo IoT registrado con deviceId "NODE-DUP-01"
+    Cuando intento registrar nuevamente el nodo IoT con deviceId "NODE-DUP-01" mediante POST /api/v1/equipment/iot-device
+    Entonces el modulo de equipos responde con codigo 409
 
   Escenario: Asociar dispositivo a estanque
-    Dado que existe un dispositivo con ID 1
-    Y existe un estanque con ID 5
-    Cuando vinculo el dispositivo al estanque mediante POST /api/v1/equipment/1/pond/5
-    Entonces el dispositivo cambia su estado a "LINKED"
-    Y el pondId del dispositivo es 5
-
-  Escenario: Desvincular dispositivo de estanque
-    Dado que existe un dispositivo vinculado al estanque 5
-    Cuando desvinculo el dispositivo mediante DELETE /api/v1/equipment/1/pond
-    Entonces el dispositivo cambia su estado a "AVAILABLE"
-    Y el pondId del dispositivo es null
+    Dado que existe un equipo disponible en la granja y un estanque disponible
+    Cuando vinculo el equipo al estanque mediante POST /api/v1/equipment/{equipmentId}/link/{pondId}
+    Entonces el modulo de equipos responde con codigo 200
+    Y el equipo cambia su estado a "LINKED" con el pondId correspondiente
 
   Escenario: Visualizar lista de equipos
-    Dado que existen dispositivos registrados
-    Cuando consulto mediante GET /api/v1/equipment
-    Entonces visualizo la lista de dispositivos con codigo 200
+    Dado que existen equipos registrados en la granja
+    Cuando consulto los equipos mediante GET /api/v1/equipment
+    Entonces el modulo de equipos responde con codigo 200
+    Y la lista contiene los equipos de la granja
+
+  Escenario: Eliminar equipo registrado
+    Dado que existe un equipo disponible en la granja
+    Cuando elimino el equipo mediante DELETE /api/v1/equipment/{id}
+    Entonces el modulo de equipos responde con codigo 204
