@@ -1,5 +1,6 @@
 package io.github.rafaviv.yakubackend.telemetry.domain.model.valueobjects;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import lombok.Getter;
 
@@ -7,6 +8,7 @@ import lombok.Getter;
 @Getter
 public class MeasurementValue {
 
+    @Column(name = "\"value\"")
     private Double value;
     private String unit;
 

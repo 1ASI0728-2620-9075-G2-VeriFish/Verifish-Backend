@@ -66,4 +66,12 @@ public class PondSpeciesFacadeAdapter implements ExternalEquipmentService {
     public Optional<Long> getFarmIdByPondId(Long pondId) {
         return pondRepository.findById(pondId).map(Pond::getFarmId);
     }
+
+    @Override
+    public Optional<String> getFarmTokenByFarmId(Long farmId) {
+        if (farmId == null) {
+            return Optional.empty();
+        }
+        return farmRepository.findById(farmId).map(Farm::getFarmToken);
+    }
 }

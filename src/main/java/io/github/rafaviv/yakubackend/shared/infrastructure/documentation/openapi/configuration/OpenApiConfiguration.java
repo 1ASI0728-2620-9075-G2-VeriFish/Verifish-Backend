@@ -25,19 +25,19 @@ public class OpenApiConfiguration {
 
     // Methods
     @Bean
-    public OpenAPI learningPlatformOpenApi() {
+    public OpenAPI yakuControlOpenApi() {
         // General configuration
         var openApi = new OpenAPI();
         openApi
                 .info(new Info()
-                        .title(this.applicationName)
+                        .title("YakuControl API")
                         .description(this.applicationDescription)
                         .version(this.applicationVersion)
                         .license(new License().name("Apache 2.0")
                                 .url("https://springdoc.org")))
                 .externalDocs(new ExternalDocumentation()
-                        .description("Autonexo wiki Documentation")
-                        .url("https://autonexo.wiki.github.io/docs"));
+                        .description("YakuControl API Documentation")
+                        .url("https://springdoc.org"));
 
         // Add security scheme
         final String securitySchemeName = "bearerAuth";

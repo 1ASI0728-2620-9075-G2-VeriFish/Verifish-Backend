@@ -40,4 +40,12 @@ public interface ExternalEquipmentService {
      * @return Optional containing the farmId if the pond exists, empty otherwise
      */
     Optional<Long> getFarmIdByPondId(Long pondId);
+
+    /**
+     * Retrieves the farm secret token used to sign telemetry payloads.
+     *
+     * @param farmId The identifier of the farm
+     * @return Optional containing the farmToken if the farm exists, empty otherwise
+     */
+    Optional<String> getFarmTokenByFarmId(Long farmId);
 }
