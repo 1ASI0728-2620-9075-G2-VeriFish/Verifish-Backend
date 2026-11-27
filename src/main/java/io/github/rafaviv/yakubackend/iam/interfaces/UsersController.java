@@ -21,6 +21,8 @@ import io.github.rafaviv.yakubackend.iam.interfaces.rest.resources.UserResource;
 import io.github.rafaviv.yakubackend.iam.interfaces.rest.transform.SignInCommandFromResourceAssembler;
 import io.github.rafaviv.yakubackend.iam.interfaces.rest.transform.SignUpCommandFromResourceAssembler;
 import io.github.rafaviv.yakubackend.iam.interfaces.rest.transform.UserResourceFromEntityAssembler;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +42,7 @@ import java.util.Optional;
  */
 @RestController
 @RequestMapping("/api/v1/users")
+@Tag(name = "IAM", description = "User authentication and account management endpoints")
 public class UsersController {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(UsersController.class);
@@ -70,6 +73,7 @@ public class UsersController {
      * @return ResponseEntity with success message
      */
     @PostMapping("/signup")
+    @Operation(summary = "Register a new user account (ADMIN or OPERATOR)")
     public ResponseEntity<String> signUp(@Valid @RequestBody SignUpResource signUpResource) {
         try {
             LOGGER.info("Processing signup request for username: {}", signUpResource.username());
@@ -104,6 +108,7 @@ public class UsersController {
      * @return ResponseEntity with JWT token and user information
      */
     @PostMapping("/signin")
+    @Operation(summary = "Authenticate user and obtain a JWT bearer token")
     public ResponseEntity<?> signIn(@Valid @RequestBody SignInResource signInResource) {
         try {
             LOGGER.info("Processing signin request for username: {}", signInResource.username());

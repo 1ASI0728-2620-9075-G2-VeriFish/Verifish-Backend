@@ -11,6 +11,8 @@ import io.github.rafaviv.yakubackend.equipment.domain.services.PondQueryService;
 import io.github.rafaviv.yakubackend.equipment.interfaces.rest.transform.RegisterEquipmentResource;
 import io.github.rafaviv.yakubackend.equipment.interfaces.rest.transform.RegisterIoTDeviceResource;
 import io.github.rafaviv.yakubackend.shared.security.FarmAccessGuard;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,6 +22,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/v1/equipment")
+@Tag(name = "Equipment", description = "Equipment and IoT device management endpoints")
 public class EquipmentController {
 
     private final EquipmentCommandService equipmentCommandService;
@@ -38,6 +41,7 @@ public class EquipmentController {
     }
 
     @PostMapping
+    @Operation(summary = "Register a single sensor or actuator")
     public ResponseEntity<?> registerEquipment(@RequestBody RegisterEquipmentResource resource) {
         farmAccessGuard.requireSameFarm(resource.farmId());
         try {
@@ -54,6 +58,7 @@ public class EquipmentController {
     }
 
     @PostMapping("/iot-device")
+    @Operation(summary = "Register a 4-component IoT device node (2 pumps and 2 sensors)")
     public ResponseEntity<?> registerIoTDevice(@RequestBody RegisterIoTDeviceResource resource) {
         farmAccessGuard.requireSameFarm(resource.farmId());
         try {
@@ -63,12 +68,15 @@ public class EquipmentController {
                 return ResponseEntity.badRequest().build();
             }
             return ResponseEntity.status(HttpStatus.CREATED).body(equipments);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
 
     @PostMapping("/{equipmentId}/link/{pondId}")
+    @Operation(summary = "Link an equipment item (or full IoT node) to a pond")
     public ResponseEntity<?> linkEquipmentToPond(@PathVariable Long equipmentId, @PathVariable Long pondId) {
         var equipmentOpt = equipmentQueryService.handle(new GetEquipmentByIdQuery(equipmentId));
         if (equipmentOpt.isEmpty()) {
@@ -89,6 +97,7 @@ public class EquipmentController {
     }
 
     @GetMapping
+    @Operation(summary = "List equipment belonging to the current farm")
     public ResponseEntity<List<Equipment>> getAllEquipment(
             @RequestParam(required = false) Long farmId) {
         Long currentFarmId = farmAccessGuard.requireCurrentFarmId();
@@ -124,6 +133,7 @@ public class EquipmentController {
     }
 
     @PostMapping("/{equipmentId}/command")
+    @Operation(summary = "Send remote activation command to an actuator via MQTT")
     public ResponseEntity<?> executeRemoteCommand(@PathVariable Long equipmentId) {
         Optional<Equipment> equipment = equipmentQueryService.handle(new GetEquipmentByIdQuery(equipmentId));
         if (equipment.isEmpty()) {
